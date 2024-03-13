@@ -29,7 +29,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plot_graph.setLabel("bottom", "Sample", **styles)
         self.plot_graph.addLegend()
         self.plot_graph.showGrid(x=True, y=True)
-        self.plot_graph.setYRange(-400, 400)
+        self.plot_graph.setYRange(-1500, 1500)
 
         voltage = [0 for _ in range(self.num_points)]
         # Get a line reference

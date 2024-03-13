@@ -18,6 +18,7 @@ class NeuralNet(nn.Module):
         self.linear2 = nn.Linear(num_features, 1)
 
     def forward(self, x):
+        x = x.float()
         pred = self.linear1(x)
         pred = self.relu(pred)
         pred = self.linear2(pred)
@@ -27,7 +28,7 @@ class QLearner():
     def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-3, eta=1e-3):
         self.num_actions = num_actions
         self.num_features = num_features
-        self.network = NeuralNet(num_features+num_actions)
+        self.network = NeuralNet(num_features+num_actions).to(torch.float)
         self.r_bar = 0
         self.epsilon = epsilon
         self.alpha = alpha

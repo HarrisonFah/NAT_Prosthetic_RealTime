@@ -3,11 +3,16 @@ from brainflow.board_shim import BoardShim, BrainFlowInputParams
 from brainflow.data_filter import DataFilter, FilterTypes, AggOperations
 from PyQt6 import QtCore, QtWidgets
 from graph import MainWindow
+from model import QLearner
+import random
+import time
+import torch
 
-BOARD_ID = 2 #board id for cyton daisy
+BOARD_ID = 39 #board id for cyton daisy
 SYNTHETIC_BOARD_ID = -1 #board id for simulation board
-SERIAL_PORT = 'COM5' #com6 for simulated board maybe?
+SERIAL_PORT = 'COM4' #com6 for simulated board maybe?
 debug = False
+NUM_POINTS = 125
 
 def init_board(serialPort, boardID, debug):
 	params = BrainFlowInputParams()
@@ -40,7 +45,7 @@ def prep_session(board):
 		print("\t-Board is being used by another program.")
 		return False
 
-def run_session(board):
+def setup_graph(board):
 	try:
 		board.start_stream(450000)
 		app = QtWidgets.QApplication([])
@@ -49,31 +54,33 @@ def run_session(board):
 		app.exec()
 	except BaseException as e:
 		print(e)
-		return
 	finally:
 		print("Ending session...")
-		board.release_session()
-		return
+		board.stop_stream()
 
-	for count, stim in enumerate(stimuli):
-		print("\tSample " + str(count) + "/" + str(len(stimuli)))
-		print("\t\t" + class_actions[stim-1][0])
-		board.insert_marker(stim)
-		time.sleep(SAMPLE_SECONDS)
-		print("\t\t" + class_actions[stim-1][1])
-		#wait SAMPLE_SECONDS for user to perform action
-		time.sleep(SAMPLE_SECONDS)
-
-	board.stop_stream()
-	data = board.get_data()
-	eeg_channels = board.get_eeg_channels()
-	sfreq = board.get_sfreq()
-	ch_names = board.get_eeg_names()
-	event_channel = board.get_event_channel()
-	board.release_session()
-	TestPlotter(data, eeg_channels, sfreq, ch_names, stimuli, event_channel)
-
-	return data
+def run_session(board):
+	#try:
+	eeg_channels = board.get_eeg_channels(BOARD_ID)
+	learner = QLearner(3, NUM_POINTS*len(eeg_channels))
+	board.start_stream(450000)
+	print("Warming up...")
+	time.sleep(5)
+	print("Started...")
+	total_time = 0
+	while total_time < 30:
+		time.sleep(0.1)
+		data = board.get_current_board_data(NUM_POINTS)
+		eeg_data = data[eeg_channels]
+		flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
+		reward = random.choice([-1, 0, 1])
+		selected_action, predicted_reward = learner.step(flat_eeg_data, reward)
+		print("Selected action:", selected_action, ", predicted reward:", predicted_reward)
+		total_time += 0.1
+	# except Exception as e:
+	# 	print(e)
+	# finally:
+	# 	board.stop_stream()
+	# 	board.release_session()
 
 def main():
 	board = init_board(SERIAL_PORT, BOARD_ID, debug)
@@ -86,6 +93,7 @@ def main():
 			prep_session(board)
 		else:
 			return
+	setup_graph(board)
 	run_session(board)
 
 main()
