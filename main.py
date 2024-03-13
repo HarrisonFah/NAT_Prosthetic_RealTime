@@ -2,7 +2,8 @@ import brainflow
 from brainflow.board_shim import BoardShim, BrainFlowInputParams
 from brainflow.data_filter import DataFilter, FilterTypes, AggOperations
 from PyQt6 import QtCore, QtWidgets
-from graph import MainWindow
+from graph import MainGraphWindow
+from rlplot import MainRLWindow
 from model import QLearner
 import random
 import time
@@ -48,8 +49,9 @@ def prep_session(board):
 def setup_graph(board):
 	try:
 		board.start_stream(450000)
+		print("Starting graph...")
 		app = QtWidgets.QApplication([])
-		main = MainWindow(board)
+		main = MainGraphWindow(board)
 		main.show()
 		app.exec()
 	except BaseException as e:
@@ -60,22 +62,14 @@ def setup_graph(board):
 
 def run_session(board):
 	#try:
-	eeg_channels = board.get_eeg_channels(BOARD_ID)
-	learner = QLearner(3, NUM_POINTS*len(eeg_channels))
 	board.start_stream(450000)
 	print("Warming up...")
 	time.sleep(5)
 	print("Started...")
-	total_time = 0
-	while total_time < 30:
-		time.sleep(0.1)
-		data = board.get_current_board_data(NUM_POINTS)
-		eeg_data = data[eeg_channels]
-		flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
-		reward = random.choice([-1, 0, 1])
-		selected_action, predicted_reward = learner.step(flat_eeg_data, reward)
-		print("Selected action:", selected_action, ", predicted reward:", predicted_reward)
-		total_time += 0.1
+	app = QtWidgets.QApplication([])
+	main = MainRLGraphWindow(board)
+	main.show()
+	app.exec()
 	# except Exception as e:
 	# 	print(e)
 	# finally:

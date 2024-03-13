@@ -7,7 +7,7 @@ import math
 
 colors=['b', 'g', 'r', 'c', 'm', 'y', 'k']
 
-class MainWindow(QtWidgets.QMainWindow):
+class MainGraphWindow(QtWidgets.QMainWindow):
     
     keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
 
@@ -58,7 +58,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lines[channel].setData(voltage)
 
     def keyPressEvent(self, event):
-        super(MainWindow, self).keyPressEvent(event)
+        super(MainGraphWindow, self).keyPressEvent(event)
         print('pressed from MainWindow: ', event.key())
         self.keyPressed.emit(event)
 

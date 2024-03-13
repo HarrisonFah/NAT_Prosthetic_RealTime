@@ -1,0 +1,92 @@
+from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
+from brainflow.data_filter import DataFilter, FilterTypes, DetrendOperations
+from random import randint
+from PyQt6 import QtCore, QtWidgets
+import pyqtgraph as pg
+import math
+
+colors=['b', 'g', 'r', 'c', 'm', 'y', 'k']
+
+class MainRLWindow(QtWidgets.QMainWindow):
+    
+    keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
+
+    def __init__(self, board_shim, num_points):
+        super().__init__()
+        self.board_id = board_shim.get_board_id()
+        self.board_shim = board_shim
+        self.eeg_channels = BoardShim.get_eeg_channels(self.board_id)
+        self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
+        self.update_speed_ms = 50
+        self.window_size = 4
+        self.num_points = 100
+        self.num_samples = 125
+        self.learner = QLearner(3, num_points*len(eeg_channels))
+        self.queued_reward = 0
+
+        # Temperature vs time dynamic plot
+        self.plot_graph = pg.PlotWidget()
+        self.setCentralWidget(self.plot_graph)
+        self.plot_graph.setBackground("w")
+        self.plot_graph.setTitle("RL Agent Stats", color="b", size="20pt")
+        styles = {"color": "red", "font-size": "18px"}
+        self.plot_graph.addLegend()
+        self.plot_graph.showGrid(x=True, y=True)
+        self.plot_graph.setYRange(-2, 2)
+
+        self.predictions = [0 for _ in range(self.num_points)]
+        # Get a line reference
+        predict_pen = pg.mkPen(color = 'b', width=3)
+        self.predict_line = self.plot_graph.plot(
+            self.predictions,
+            name="Prediction",
+            pen=predict_pen,
+        )
+        self.rewards = [0 for _ in range(self.num_points)]
+        reward_pen = pg.mkPen(color = 'r', width=3)
+        self.reward_line = self.plot_graph.plot(
+            self.rewards,
+            name="Reward",
+            pen=reward_pen,
+        )
+        self.actions = [0 for _ in range(self.num_points)]
+        action_pen = pg.mkPen(color = 'g', width=3)
+        self.actions_line = self.plot_graph.plot(
+            self.actions,
+            name="Action",
+            pen=action_pen,
+        )
+        # Add a timer to simulate new temperature measurements
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(self.update_speed_ms)
+        self.timer.timeout.connect(self.update_plot)
+        self.timer.start()
+
+    def update_plot(self):
+        data = board.get_current_board_data(self.num_samples)
+        eeg_data = data[self.eeg_channels]
+        flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
+        selected_action, predicted_reward = learner.step(flat_eeg_data, self.queued_reward)
+        print("Selected action:", selected_action, ", predicted reward:", predicted_reward)
+
+        self.predictions.pop(0)
+        self.predictions.append(predicted_reward)
+        self.predict_line.setData(self.predictions)
+
+        self.actions.pop(0)
+        self.actions.append(selected_action)
+        self.action_line.setData(self.actions)
+
+        self.rewards.pop(0)
+        self.rewards.append(self.queued_reward)
+        self.rewards_line.setData(self.rewards)
+        self.queued_reward = 0
+
+    def keyPressEvent(self, event):
+        super(MainRLWindow, self).keyPressEvent(event)
+        if event.key() == QtCore.Qt.Key_Up:
+            self.queued_reward = 1
+        elif event.key() == QtCore.Qt.Key_Down:
+            self.queued_reward = -1
+        print('pressed from MainWindow: ', event.key())
+        self.keyPressed.emit(event)
