@@ -67,7 +67,7 @@ def run_session(board):
 	time.sleep(5)
 	print("Started...")
 	app = QtWidgets.QApplication([])
-	main = MainRLGraphWindow(board)
+	main = MainRLWindow(board)
 	main.show()
 	app.exec()
 	# except Exception as e:

@@ -14,8 +14,10 @@ class NeuralNet(nn.Module):
     def __init__(self, num_features):
         super(NeuralNet, self).__init__()
         self.linear1 = nn.Linear(num_features, num_features)
+        torch.nn.init.zeros_(self.linear1.weight)
         self.relu = nn.ReLU()
         self.linear2 = nn.Linear(num_features, 1)
+        torch.nn.init.zeros_(self.linear2.weight)
 
     def forward(self, x):
         x = x.float()

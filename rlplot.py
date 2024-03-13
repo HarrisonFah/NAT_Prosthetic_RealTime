@@ -4,6 +4,8 @@ from random import randint
 from PyQt6 import QtCore, QtWidgets
 import pyqtgraph as pg
 import math
+import torch
+from model import QLearner
 
 colors=['b', 'g', 'r', 'c', 'm', 'y', 'k']
 
@@ -11,7 +13,7 @@ class MainRLWindow(QtWidgets.QMainWindow):
     
     keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
 
-    def __init__(self, board_shim, num_points):
+    def __init__(self, board_shim, num_samples=125):
         super().__init__()
         self.board_id = board_shim.get_board_id()
         self.board_shim = board_shim
@@ -20,8 +22,8 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.update_speed_ms = 50
         self.window_size = 4
         self.num_points = 100
-        self.num_samples = 125
-        self.learner = QLearner(3, num_points*len(eeg_channels))
+        self.num_samples = num_samples
+        self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
         self.queued_reward = 0
 
         # Temperature vs time dynamic plot
@@ -51,7 +53,7 @@ class MainRLWindow(QtWidgets.QMainWindow):
         )
         self.actions = [0 for _ in range(self.num_points)]
         action_pen = pg.mkPen(color = 'g', width=3)
-        self.actions_line = self.plot_graph.plot(
+        self.action_line = self.plot_graph.plot(
             self.actions,
             name="Action",
             pen=action_pen,
@@ -63,14 +65,14 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.timer.start()
 
     def update_plot(self):
-        data = board.get_current_board_data(self.num_samples)
+        data = self.board_shim.get_current_board_data(self.num_samples)
         eeg_data = data[self.eeg_channels]
         flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
-        selected_action, predicted_reward = learner.step(flat_eeg_data, self.queued_reward)
-        print("Selected action:", selected_action, ", predicted reward:", predicted_reward)
+        selected_action, predicted_reward = self.learner.step(flat_eeg_data, self.queued_reward)
+        print("Selected action:", selected_action, ", predicted reward:", predicted_reward[0].item())
 
         self.predictions.pop(0)
-        self.predictions.append(predicted_reward)
+        self.predictions.append(predicted_reward[0].item())
         self.predict_line.setData(self.predictions)
 
         self.actions.pop(0)
@@ -79,14 +81,14 @@ class MainRLWindow(QtWidgets.QMainWindow):
 
         self.rewards.pop(0)
         self.rewards.append(self.queued_reward)
-        self.rewards_line.setData(self.rewards)
+        self.reward_line.setData(self.rewards)
         self.queued_reward = 0
 
     def keyPressEvent(self, event):
         super(MainRLWindow, self).keyPressEvent(event)
-        if event.key() == QtCore.Qt.Key_Up:
+        if event.key() == 16777235:
             self.queued_reward = 1
-        elif event.key() == QtCore.Qt.Key_Down:
+        elif event.key() == 16777237:
             self.queued_reward = -1
         print('pressed from MainWindow: ', event.key())
         self.keyPressed.emit(event)
