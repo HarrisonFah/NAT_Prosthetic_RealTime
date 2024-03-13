@@ -8,6 +8,9 @@ import math
 colors=['b', 'g', 'r', 'c', 'm', 'y', 'k']
 
 class MainWindow(QtWidgets.QMainWindow):
+    
+    keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
+
     def __init__(self, board_shim):
         super().__init__()
         self.board_id = board_shim.get_board_id()
@@ -53,3 +56,13 @@ class MainWindow(QtWidgets.QMainWindow):
         for channel in range(len(self.eeg_channels)):
             voltage = data[channel].tolist()
             self.lines[channel].setData(voltage)
+
+    def keyPressEvent(self, event):
+        super(MainWindow, self).keyPressEvent(event)
+        print('pressed from MainWindow: ', event.key())
+        self.keyPressed.emit(event)
+
+    def on_key(self, event):
+        print('event received @ MainWindow')
+        if event.key() == QtCore.Qt.Key_0:
+            print(0)
