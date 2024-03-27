@@ -35,12 +35,15 @@ class QLearner():
         self.epsilon = epsilon
         self.alpha = alpha
         self.eta = eta
+        self.curr_state = None
+        self.curr_reward = None
+        self.curr_action = None
         self.optimizer = torch.optim.SGD(self.network.parameters(), lr=alpha)
 
-    def loss(self, x, reward, action):
+    def loss(self, x, reward, action, x_prime):
         return reward \
             - self.r_bar \
-            + torch.max(torch.tensor([self.network(torch.cat((x, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])) \
+            + torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])) \
             - self.network(torch.cat((x, one_hot(self.num_actions, action))))
 
     def step(self, x, reward):
@@ -61,14 +64,18 @@ class QLearner():
         rand = random.random()
         if rand < self.epsilon:
             nonmax_actions = list(range(self.num_actions))
-            nonmax_actions.remove(max_action)
             selected_action = random.choice(nonmax_actions)
         else:
             selected_action = max_action
         #calculate td error and backpropagate
         predicted_reward = self.network(torch.cat((x, one_hot(self.num_actions, action))))
-        delta = self.loss(x, reward, selected_action)
-        delta.backward()
-        self.optimizer.step()
+        if (self.curr_state != None): 
+            delta = self.loss(self.curr_state, self.curr_reward, self.curr_action, x) # x here is S'
+            delta.backward()
+            self.optimizer.step()
+        self.curr_state = x # set S
+        self.curr_reward = predicted_reward  # set R
+        self.curr_action = selected_action # set A
+            
         return selected_action, predicted_reward
             

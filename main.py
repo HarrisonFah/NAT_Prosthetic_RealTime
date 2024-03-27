@@ -9,9 +9,9 @@ import random
 import time
 import torch
 
-BOARD_ID = 39 #board id for cyton daisy
+BOARD_ID = 39 #board id for muse S (38 for muse 2)
 SYNTHETIC_BOARD_ID = -1 #board id for simulation board
-SERIAL_PORT = 'COM4' #com6 for simulated board maybe?
+SERIAL_PORT = 'COM4' #com6 for simulated board maybe? For mac: '/dev/cu.Bluetooth-Incoming-Port'
 debug = False
 NUM_POINTS = 125
 
