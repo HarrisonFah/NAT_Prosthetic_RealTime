@@ -32,7 +32,7 @@ class MainGraphWindow(QtWidgets.QMainWindow):
         self.plot_graph.setLabel("bottom", "Sample", **styles)
         self.plot_graph.addLegend()
         self.plot_graph.showGrid(x=True, y=True)
-        self.plot_graph.setYRange(-1500, 1500)
+        self.plot_graph.setYRange(-5, 5)
 
         voltage = [0 for _ in range(self.num_points)]
         # Get a line reference
@@ -53,6 +53,8 @@ class MainGraphWindow(QtWidgets.QMainWindow):
 
     def update_plot(self):
         data = self.board_shim.get_current_board_data(self.num_points)
+        data /= 1000
+        print(data)
         for channel in range(len(self.eeg_channels)):
             voltage = data[channel].tolist()
             self.lines[channel].setData(voltage)

@@ -5,15 +5,17 @@ from PyQt6 import QtCore, QtWidgets
 import pyqtgraph as pg
 import math
 import torch
+import numpy as np
 from model import QLearner
 
 colors=['b', 'g', 'r', 'c', 'm', 'y', 'k']
+actions = {0:0, 1:1, 2:-1} #translates action as represented in rl model to -1, 0, +1
 
 class MainRLWindow(QtWidgets.QMainWindow):
     
     keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
 
-    def __init__(self, board_shim, num_samples=125):
+    def __init__(self, board_shim, num_samples=125, num_baseline_samples = 25):
         super().__init__()
         self.board_id = board_shim.get_board_id()
         self.board_shim = board_shim
@@ -23,6 +25,7 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.window_size = 4
         self.num_points = 100
         self.num_samples = num_samples
+        self.num_baseline_samples = num_baseline_samples
         self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
         self.queued_reward = 0
 
@@ -65,18 +68,22 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.timer.start()
 
     def update_plot(self):
-        data = self.board_shim.get_current_board_data(self.num_samples)
-        eeg_data = data[self.eeg_channels]
+        data = self.board_shim.get_current_board_data(self.num_baseline_samples + self.num_samples)
+        baseline_data = data[:,:self.num_baseline_samples]
+        #subtracts mean of each channel from all samples in each channel
+        state_data = (data[:,self.num_baseline_samples:].transpose() - np.mean(baseline_data, axis=1)).transpose()
+        state_data /= 1000
+        eeg_data = state_data[self.eeg_channels]
         flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
         selected_action, predicted_reward = self.learner.step(flat_eeg_data, self.queued_reward)
-        print("Selected action:", selected_action, ", predicted reward:", predicted_reward[0].item())
+        print("Selected action:", actions[selected_action], ", predicted reward:", predicted_reward[0].item())
 
         self.predictions.pop(0)
         self.predictions.append(predicted_reward[0].item())
         self.predict_line.setData(self.predictions)
 
         self.actions.pop(0)
-        self.actions.append(selected_action)
+        self.actions.append(actions[selected_action])
         self.action_line.setData(self.actions)
 
         self.rewards.pop(0)

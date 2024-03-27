@@ -13,10 +13,10 @@ def one_hot(num_classes, class_idx):
 class NeuralNet(nn.Module):
     def __init__(self, num_features):
         super(NeuralNet, self).__init__()
-        self.linear1 = nn.Linear(num_features, num_features)
+        self.linear1 = nn.Linear(num_features, num_features, bias=False)
         torch.nn.init.zeros_(self.linear1.weight)
         self.relu = nn.ReLU()
-        self.linear2 = nn.Linear(num_features, 1)
+        self.linear2 = nn.Linear(num_features, 1, bias=False)
         torch.nn.init.zeros_(self.linear2.weight)
 
     def forward(self, x):
@@ -27,10 +27,11 @@ class NeuralNet(nn.Module):
         return pred
     
 class QLearner():
-    def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-3, eta=1e-3):
+    def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-1, eta=1e-3):
         self.num_actions = num_actions
         self.num_features = num_features
         self.network = NeuralNet(num_features+num_actions).to(torch.float)
+        print(self.network)
         self.r_bar = 0
         self.epsilon = epsilon
         self.alpha = alpha
@@ -38,6 +39,10 @@ class QLearner():
         self.optimizer = torch.optim.SGD(self.network.parameters(), lr=alpha)
 
     def loss(self, x, reward, action):
+        print("reward:", reward)
+        print("self.r_bar:", self.r_bar)
+        print("max Q(S', a):", torch.max(torch.tensor([self.network(torch.cat((x, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])))
+        print("Q(S,A):", self.network(torch.cat((x, one_hot(self.num_actions, action)))))
         return reward \
             - self.r_bar \
             + torch.max(torch.tensor([self.network(torch.cat((x, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])) \
@@ -68,6 +73,8 @@ class QLearner():
         #calculate td error and backpropagate
         predicted_reward = self.network(torch.cat((x, one_hot(self.num_actions, action))))
         delta = self.loss(x, reward, selected_action)
+        print("loss:", delta)
+        self.r_bar += self.eta*self.alpha*delta.detach()
         delta.backward()
         self.optimizer.step()
         return selected_action, predicted_reward

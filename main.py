@@ -9,7 +9,7 @@ import random
 import time
 import torch
 
-BOARD_ID = 39 #board id for cyton daisy
+BOARD_ID = 38 #board id for cyton daisy
 SYNTHETIC_BOARD_ID = -1 #board id for simulation board
 SERIAL_PORT = 'COM4' #com6 for simulated board maybe?
 debug = False
