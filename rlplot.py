@@ -26,7 +26,8 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.num_points = 100
         self.num_samples = num_samples
         self.num_baseline_samples = num_baseline_samples
-        self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
+        #self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
+        self.learner = QLearner(2, self.num_samples*len(self.eeg_channels))
         self.queued_reward = 0
 
         # Temperature vs time dynamic plot
@@ -75,7 +76,8 @@ class MainRLWindow(QtWidgets.QMainWindow):
         state_data /= 1000
         eeg_data = state_data[self.eeg_channels]
         flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
-        selected_action, predicted_reward = self.learner.step(flat_eeg_data, self.queued_reward)
+        fft_eeg_data = torch.flatten(torch.fft.fft(flat_eeg_data))
+        selected_action, predicted_reward = self.learner.step(fft_eeg_data, self.queued_reward)
         print("Selected action:", actions[selected_action], ", predicted reward:", predicted_reward[0].item())
 
         self.predictions.pop(0)
