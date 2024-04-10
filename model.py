@@ -13,33 +13,26 @@ def one_hot(num_classes, class_idx):
 class NeuralNet(nn.Module):
     def __init__(self, num_features):
         super(NeuralNet, self).__init__()
-        self.linear = nn.Linear(num_features, 1, bias=True)
-        torch.nn.init.constant_(self.linear.weight, 0)
-        torch.nn.init.constant_(self.linear.bias, 0)
-        # self.linear1 = nn.Linear(num_features, num_features, bias=True)
-        # torch.nn.init.kaiming_uniform_(self.linear1.weight, nonlinearity="relu")
-        # #torch.nn.init.kaiming_uniform_(self.linear1.bias, nonlinearity="relu")
-        # #torch.nn.init.zeros_(self.linear1.bias)
-        # self.relu = nn.ReLU()
-        # self.linear2 = nn.Linear(num_features, 1, bias=True)
-        # torch.nn.init.kaiming_uniform_(self.linear2.weight, nonlinearity="relu")
-        # #torch.nn.init.kaiming_uniform_(self.linear2.bias, nonlinearity="relu")
-        # #torch.nn.init.zeros_(self.linear2.bias)
-        # self.sig = nn.Sigmoid()
+        self.linear1 = nn.Linear(num_features, num_features//2, bias=True)
+        torch.nn.init.constant_(self.linear1.weight, 0)
+        torch.nn.init.constant_(self.linear1.bias, 0)
+        self.linear2 = nn.Linear(num_features//2, 1, bias=True)
+        torch.nn.init.constant_(self.linear2.weight, 0)
+        torch.nn.init.constant_(self.linear2.bias, 0)
+        self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
 
     def forward(self, x):
+        print(x.shape)
         x = x.float()
-        pred = self.linear(x)
-        pred = self.tanh(pred)*2
-        #pred = self.relu(pred)
-        #pred = self.linear2(pred)
-        #pred = self.sig(pred)
-
+        pred = self.linear1(x)
+        pred = self.relu(pred)
+        pred = self.linear2(pred)
+        pred = self.tanh(pred)
         return pred
     
 class QLearner():
-    def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-4, eta=1e-1):
+    def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-2, eta=1e-1):
         self.num_actions = num_actions
         self.num_features = num_features
         self.network = NeuralNet(num_features+num_actions).to(torch.float)
@@ -89,13 +82,13 @@ class QLearner():
         if (self.curr_state != None): 
             predicted_reward = self.network(torch.cat((self.curr_state, one_hot(self.num_actions, action))))
             delta = self.loss(self.curr_state, reward, self.curr_action, x, predicted_reward) # x here is S'
-            print(delta)
+            #print(delta)
             self.r_bar += self.eta*self.alpha*delta.detach()
             delta.backward()
-            print("Linear weight grads")
-            print(self.network.linear.weight.grad)
-            print("Linear bias grads")
-            print(self.network.linear.bias.grad)
+            # print("Linear weight grads")
+            # print(self.network.linear.weight.grad)
+            # print("Linear bias grads")
+            # print(self.network.linear.bias.grad)
             # print(self.network.linear1.weight.grad)
             # print(self.network.linear2.weight.grad)
             self.optimizer.step()

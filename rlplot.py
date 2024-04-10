@@ -15,19 +15,21 @@ class MainRLWindow(QtWidgets.QMainWindow):
     
     keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
 
-    def __init__(self, board_shim, num_samples=125, num_baseline_samples = 25):
+    def __init__(self, board_shim, num_samples=250, num_baseline_samples = 25):
         super().__init__()
         self.board_id = board_shim.get_board_id()
         self.board_shim = board_shim
         self.eeg_channels = BoardShim.get_eeg_channels(self.board_id)
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
-        self.update_speed_ms = 50
+        self.update_speed_ms = 100
         self.window_size = 4
         self.num_points = 100
         self.num_samples = num_samples
         self.num_baseline_samples = num_baseline_samples
         #self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
-        self.learner = QLearner(2, self.num_samples*len(self.eeg_channels))
+        num_fft_features = torch.flatten(torch.view_as_real(torch.fft.rfft(torch.zeros((len(self.eeg_channels), self.num_samples))))).shape[0]
+        print("shape:", num_fft_features)
+        self.learner = QLearner(2, num_fft_features)
         self.queued_reward = 0
 
         # Temperature vs time dynamic plot
@@ -73,11 +75,16 @@ class MainRLWindow(QtWidgets.QMainWindow):
         baseline_data = data[:,:self.num_baseline_samples]
         #subtracts mean of each channel from all samples in each channel
         state_data = (data[:,self.num_baseline_samples:].transpose() - np.mean(baseline_data, axis=1)).transpose()
-        state_data /= 1000
-        eeg_data = state_data[self.eeg_channels]
-        flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
-        fft_eeg_data = torch.flatten(torch.fft.fft(flat_eeg_data))
-        selected_action, predicted_reward = self.learner.step(fft_eeg_data, self.queued_reward)
+        #state_data /= 1000
+        eeg_data = torch.tensor(state_data[self.eeg_channels])
+        #flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
+        fft_eeg_data = torch.view_as_real(torch.fft.rfft(eeg_data))
+        # print(fft_eeg_data)
+        # print("fft_shape:", fft_eeg_data.shape)
+        flat_fft_eeg_data = torch.flatten(fft_eeg_data)
+        # print("max:", torch.max(flat_fft_eeg_data))
+        # print("min:", torch.min(fft_eeg_data))
+        selected_action, predicted_reward = self.learner.step(flat_fft_eeg_data, self.queued_reward)
         print("Selected action:", actions[selected_action], ", predicted reward:", predicted_reward[0].item())
 
         self.predictions.pop(0)
