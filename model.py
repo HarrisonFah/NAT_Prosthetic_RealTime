@@ -62,6 +62,8 @@ class QLearner():
         action_values = []
         for action in range(self.num_actions):
             action_vector = one_hot(self.num_actions, action)
+            print("action:",action)
+            print("action_vector:",action_vector)
             state_action_vector = torch.cat((x, action_vector))
             action_val = self.network(state_action_vector)
             if action == 0:
@@ -96,5 +98,5 @@ class QLearner():
         #self.curr_reward = predicted_reward  # set R
         self.curr_action = selected_action # set A
             
-        return selected_action, predicted_reward
+        return selected_action, action_values
             

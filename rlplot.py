@@ -29,7 +29,8 @@ class MainRLWindow(QtWidgets.QMainWindow):
         #self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
         num_fft_features = torch.flatten(torch.view_as_real(torch.fft.rfft(torch.zeros((len(self.eeg_channels), self.num_samples))))).shape[0]
         print("shape:", num_fft_features)
-        self.learner = QLearner(2, num_fft_features)
+        self.num_actions = 2
+        self.learner = QLearner(self.num_actions, num_fft_features)
         self.queued_reward = 0
 
         # Temperature vs time dynamic plot
@@ -42,14 +43,18 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.plot_graph.showGrid(x=True, y=True)
         self.plot_graph.setYRange(-2, 2)
 
-        self.predictions = [0 for _ in range(self.num_points)]
-        # Get a line reference
-        predict_pen = pg.mkPen(color = 'b', width=3)
-        self.predict_line = self.plot_graph.plot(
-            self.predictions,
-            name="Prediction",
-            pen=predict_pen,
-        )
+        self.all_predictions = []
+        for action in range(self.num_actions):
+            predictions = [0 for _ in range(self.num_points)]
+            # Get a line reference
+            predict_pen = pg.mkPen(color = ['b', 'c', 'm'][action], width=3)
+            predict_line = self.plot_graph.plot(
+                predictions,
+                name=f"Action {action} Prediction",
+                pen=predict_pen,
+            )
+            self.all_predictions.append((predictions, predict_line))
+    
         self.rewards = [0 for _ in range(self.num_points)]
         reward_pen = pg.mkPen(color = 'r', width=3)
         self.reward_line = self.plot_graph.plot(
@@ -84,12 +89,14 @@ class MainRLWindow(QtWidgets.QMainWindow):
         flat_fft_eeg_data = torch.flatten(fft_eeg_data)
         # print("max:", torch.max(flat_fft_eeg_data))
         # print("min:", torch.min(fft_eeg_data))
-        selected_action, predicted_reward = self.learner.step(flat_fft_eeg_data, self.queued_reward)
-        print("Selected action:", actions[selected_action], ", predicted reward:", predicted_reward[0].item())
+        selected_action, predicted_rewards = self.learner.step(flat_fft_eeg_data, self.queued_reward)
+        print("Selected action:", actions[selected_action], ", predicted rewards:", predicted_rewards)
 
-        self.predictions.pop(0)
-        self.predictions.append(predicted_reward[0].item())
-        self.predict_line.setData(self.predictions)
+        for action in range(self.num_actions):
+            predictions, predict_line = self.all_predictions[action]
+            predictions.pop(0)
+            predictions.append(predicted_rewards[action].item())
+            predict_line.setData(predictions)
 
         self.actions.pop(0)
         self.actions.append(actions[selected_action])
