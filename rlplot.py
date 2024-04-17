@@ -27,7 +27,7 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.num_samples = num_samples
         self.num_baseline_samples = num_baseline_samples
         #self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
-        num_fft_features = torch.flatten(torch.view_as_real(torch.fft.rfft(torch.zeros((len(self.eeg_channels), self.num_samples))))).shape[0]
+        num_fft_features = torch.flatten(torch.fft.rfft(torch.zeros((len(self.eeg_channels), self.num_samples))).real).shape[0]
         print("shape:", num_fft_features)
         self.num_actions = 2
         self.learner = QLearner(self.num_actions, num_fft_features)
@@ -83,10 +83,11 @@ class MainRLWindow(QtWidgets.QMainWindow):
         #state_data /= 1000
         eeg_data = torch.tensor(state_data[self.eeg_channels])
         #flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
-        fft_eeg_data = torch.view_as_real(torch.fft.rfft(eeg_data))
+        #fft_eeg_data = torch.view_as_real(torch.fft.rfft(eeg_data))
+        fft_eeg_data = torch.fft.rfft(eeg_data).real
         # print(fft_eeg_data)
         # print("fft_shape:", fft_eeg_data.shape)
-        flat_fft_eeg_data = torch.flatten(fft_eeg_data)
+        flat_fft_eeg_data = torch.flatten(fft_eeg_data) / 1000
         # print("max:", torch.max(flat_fft_eeg_data))
         # print("min:", torch.min(fft_eeg_data))
         selected_action, predicted_rewards = self.learner.step(flat_fft_eeg_data, self.queued_reward)

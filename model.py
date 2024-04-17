@@ -7,23 +7,28 @@ import math
 
 def one_hot(num_classes, class_idx):
     vector = torch.zeros((num_classes))
-    vector[class_idx] = 1
+    vector[class_idx] = 1e3
     return vector
 
 class NeuralNet(nn.Module):
     def __init__(self, num_features):
         super(NeuralNet, self).__init__()
         self.linear1 = nn.Linear(num_features, num_features//2, bias=True)
-        torch.nn.init.constant_(self.linear1.weight, 0)
+        # torch.nn.init.constant_(self.linear1.weight, 0)
         torch.nn.init.constant_(self.linear1.bias, 0)
+        torch.nn.init.xavier_normal_(self.linear1.weight, gain=1e-3)
+        #torch.nn.init.xavier_normal_(self.linear1.bias, 0)
         self.linear2 = nn.Linear(num_features//2, 1, bias=True)
-        torch.nn.init.constant_(self.linear2.weight, 0)
+        # torch.nn.init.constant_(self.linear2.weight, 0)
         torch.nn.init.constant_(self.linear2.bias, 0)
+        torch.nn.init.xavier_normal_(self.linear2.weight, gain=1e-3)
+        #torch.nn.init.xavier_normal_(self.linear2.bias, 0)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
 
     def forward(self, x):
-        print(x.shape)
+        # print(x.shape)
+        # print(x)
         x = x.float()
         pred = self.linear1(x)
         pred = self.relu(pred)
@@ -32,7 +37,7 @@ class NeuralNet(nn.Module):
         return pred
     
 class QLearner():
-    def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-2, eta=1e-1):
+    def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=3e-4, eta=1e-2):
         self.num_actions = num_actions
         self.num_features = num_features
         self.network = NeuralNet(num_features+num_actions).to(torch.float)
@@ -46,14 +51,19 @@ class QLearner():
         self.curr_action = None
         self.optimizer = torch.optim.SGD(self.network.parameters(), lr=alpha)
 
-    def loss(self, x, reward, action, x_prime, predicted_reward):
-        print("reward:", reward)
-        print("self.r_bar:", self.r_bar)
-        print("max Q(S', a):", torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])))
-        print("Q(S,A):", predicted_reward)
+    def loss(self, x, reward, action, x_prime):
+        # print("reward:", reward)
+        # print("self.r_bar:", self.r_bar)
+        # print("max Q(S', a):", torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])))
+        # print("Q(S,A):", predicted_reward)
+        predicted_reward = self.network(torch.cat((x, one_hot(self.num_actions, action))))
+        with torch.no_grad():
+            max_reward = torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)]))
+        print("predicted_reward - max_reward:", predicted_reward - max_reward)
+        print("x - x_prime:", x-x_prime)
         return (reward \
             - self.r_bar \
-            + torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])) \
+            + max_reward \
             - predicted_reward)**2
 
     def step(self, x, reward):
@@ -82,17 +92,25 @@ class QLearner():
         #calculate td error and backpropagate
         predicted_reward = 0
         if (self.curr_state != None): 
-            predicted_reward = self.network(torch.cat((self.curr_state, one_hot(self.num_actions, action))))
-            delta = self.loss(self.curr_state, reward, self.curr_action, x, predicted_reward) # x here is S'
-            #print(delta)
+            with torch.no_grad():
+                predicted_reward = self.network(torch.cat((self.curr_state, one_hot(self.num_actions, action))))
+            delta = self.loss(self.curr_state, reward, self.curr_action, x) # x here is S'
+            print("delta:", delta)
             self.r_bar += self.eta*self.alpha*delta.detach()
             delta.backward()
-            # print("Linear weight grads")
+            print("Linear bias grads")
+            print(self.network.linear1.bias.grad)
+            print(self.network.linear2.bias.grad)
+            print("Linear weight grads")
             # print(self.network.linear.weight.grad)
             # print("Linear bias grads")
             # print(self.network.linear.bias.grad)
-            # print(self.network.linear1.weight.grad)
-            # print(self.network.linear2.weight.grad)
+            print(self.network.linear1.weight.grad)
+            print(self.network.linear2.weight.grad)
+            print("Action 0 weight")
+            print(self.network.linear1.weight.shape)
+            print(self.network.linear1.weight[self.network.linear1.weight.shape[0]-2])
+            print(self.network.linear1.weight[self.network.linear1.weight.shape[0]-1])
             self.optimizer.step()
         self.curr_state = x # set S
         #self.curr_reward = predicted_reward  # set R
