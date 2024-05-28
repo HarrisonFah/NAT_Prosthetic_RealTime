@@ -14,21 +14,15 @@ class NeuralNet(nn.Module):
     def __init__(self, num_features):
         super(NeuralNet, self).__init__()
         self.linear1 = nn.Linear(num_features, num_features//2, bias=True)
-        # torch.nn.init.constant_(self.linear1.weight, 0)
         torch.nn.init.constant_(self.linear1.bias, 0)
         torch.nn.init.xavier_normal_(self.linear1.weight, gain=1e-3)
-        #torch.nn.init.xavier_normal_(self.linear1.bias, 0)
         self.linear2 = nn.Linear(num_features//2, 1, bias=True)
-        # torch.nn.init.constant_(self.linear2.weight, 0)
         torch.nn.init.constant_(self.linear2.bias, 0)
         torch.nn.init.xavier_normal_(self.linear2.weight, gain=1e-3)
-        #torch.nn.init.xavier_normal_(self.linear2.bias, 0)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
 
     def forward(self, x):
-        # print(x.shape)
-        # print(x)
         x = x.float()
         pred = self.linear1(x)
         pred = self.relu(pred)
@@ -46,16 +40,11 @@ class QLearner():
         self.epsilon = epsilon
         self.alpha = alpha
         self.eta = eta
-        self.curr_state = None
-        self.curr_reward = None
-        self.curr_action = None
+        self.prev_state = None
+        self.prev_action = None
         self.optimizer = torch.optim.SGD(self.network.parameters(), lr=alpha)
 
     def loss(self, x, reward, action, x_prime):
-        # print("reward:", reward)
-        # print("self.r_bar:", self.r_bar)
-        # print("max Q(S', a):", torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)])))
-        # print("Q(S,A):", predicted_reward)
         predicted_reward = self.network(torch.cat((x, one_hot(self.num_actions, action))))
         with torch.no_grad():
             max_reward = torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)]))
@@ -90,11 +79,8 @@ class QLearner():
         else:
             selected_action = max_action
         #calculate td error and backpropagate
-        predicted_reward = 0
-        if (self.curr_state != None): 
-            with torch.no_grad():
-                predicted_reward = self.network(torch.cat((self.curr_state, one_hot(self.num_actions, action))))
-            delta = self.loss(self.curr_state, reward, self.curr_action, x) # x here is S'
+        if (self.prev_state != None): 
+            delta = self.loss(self.prev_state, reward, self.prev_action, x) # x here is S'
             print("delta:", delta)
             self.r_bar += self.eta*self.alpha*delta.detach()
             delta.backward()
@@ -102,9 +88,6 @@ class QLearner():
             print(self.network.linear1.bias.grad)
             print(self.network.linear2.bias.grad)
             print("Linear weight grads")
-            # print(self.network.linear.weight.grad)
-            # print("Linear bias grads")
-            # print(self.network.linear.bias.grad)
             print(self.network.linear1.weight.grad)
             print(self.network.linear2.weight.grad)
             print("Action 0 weight")
@@ -112,9 +95,8 @@ class QLearner():
             print(self.network.linear1.weight[self.network.linear1.weight.shape[0]-2])
             print(self.network.linear1.weight[self.network.linear1.weight.shape[0]-1])
             self.optimizer.step()
-        self.curr_state = x # set S
-        #self.curr_reward = predicted_reward  # set R
-        self.curr_action = selected_action # set A
+        self.prev_state = x # set S
+        self.prev_action = selected_action # set A
             
         return selected_action, action_values
             
