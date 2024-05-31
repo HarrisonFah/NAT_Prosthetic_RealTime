@@ -86,6 +86,25 @@ class MainRLWindow(QtWidgets.QMainWindow):
         selected_action, predicted_rewards = self.learner.step(flat_fft_eeg_data, self.queued_reward)
         print("Selected action:", actions[selected_action], ", predicted rewards:", predicted_rewards)
 
+        # Compute Power Spectrum
+        power_spectrum = torch.abs(fft_eeg_data) ** 2
+
+
+
+        # Frequency Bins
+        sampling_rate = 256
+        flat_eeg_data = torch.flatten(torch.tensor(eeg_data)).double()
+        freqs = torch.fft.fftfreq(len(flat_eeg_data), 1 / sampling_rate)
+
+        beta_low, beta_high = 13, 30  # beta band (13-30 Hz)
+
+        # Find indices where frequency is within the gamma band
+        beta_indices = torch.where((freqs >= beta_low) & (freqs <= beta_high))[0]
+
+        # Extract gamma band power values and calculate the mean
+        beta_power_values = power_spectrum[beta_indices]
+        beta_band_power = torch.mean(beta_power_values)
+
         for action in range(self.num_actions):
             predictions, predict_line = self.all_predictions[action]
             predictions.pop(0)
@@ -95,6 +114,22 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.actions.pop(0)
         self.actions.append(actions[selected_action])
         self.action_line.setData(self.actions)
+
+        # Queue rewards based on gamma bound power
+        if beta_band_power.item() > 75: # arbitrary
+            #print("Beta Band Power:", beta_band_power.item())
+            if (selected_action == 0) or (selected_action == -1):
+                self.queued_reward = -1
+            elif (selected_action == 1):
+                self.queued_reward = 1
+        else:
+            if (selected_action == 1): # ?? or (selected_action == -1)
+                self.queued_reward = -1
+            elif (selected_action == 0): # ??
+                self.queued_reward = 1
+
+
+
 
         self.rewards.pop(0)
         self.rewards.append(self.queued_reward)
