@@ -7,7 +7,7 @@ import math
 
 def one_hot(num_classes, class_idx):
     vector = torch.zeros((num_classes))
-    vector[class_idx] = 1e3
+    vector[class_idx] = 5e2 #1e3 for eyebrow, 5e2 for blinking
     return vector
 
 class NeuralNet(nn.Module):
@@ -34,6 +34,7 @@ class NeuralNet(nn.Module):
         return pred
     
 class QLearner():
+    #alpha 1e-4 for eyebrow movement and blinking
     def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-4, eta=1e-2):
         self.num_actions = num_actions
         self.num_features = num_features
