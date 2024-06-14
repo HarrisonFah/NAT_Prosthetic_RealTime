@@ -15,7 +15,7 @@ class MainRLWindow(QtWidgets.QMainWindow):
     
     keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
 
-    def __init__(self, board_shim, num_samples=250, num_baseline_samples = 25):
+    def __init__(self, board_shim, num_samples=125, num_baseline_samples = 50):
         super().__init__()
         self.board_id = board_shim.get_board_id()
         self.board_shim = board_shim
@@ -27,11 +27,13 @@ class MainRLWindow(QtWidgets.QMainWindow):
         self.num_samples = num_samples
         self.num_baseline_samples = num_baseline_samples
         #self.learner = QLearner(3, self.num_samples*len(self.eeg_channels))
-        num_fft_features = torch.flatten(torch.fft.rfft(torch.zeros((len(self.eeg_channels)-1, self.num_samples))).real).shape[0]
-        print("shape:", num_fft_features)
+        num_fft_features = torch.flatten(torch.fft.fft(torch.zeros((len(self.eeg_channels)-1, self.num_samples)))).shape[0]
         self.num_actions = 2
         self.learner = QLearner(self.num_actions, num_fft_features)
         self.queued_reward = 0
+        #moving max and min values for fft magnitudes
+        self.fft_min = torch.full((len(self.eeg_channels)-1, 1), float("Inf"))
+        self.fft_max = torch.full((len(self.eeg_channels)-1, 1), float("-Inf"))
 
         # Temperature vs time dynamic plot
         self.plot_graph = pg.PlotWidget()
@@ -81,9 +83,19 @@ class MainRLWindow(QtWidgets.QMainWindow):
         #subtracts mean of each channel from all samples in each channel
         state_data = (data[:,self.num_baseline_samples:].transpose() - np.mean(baseline_data, axis=1)).transpose()
         eeg_data = torch.tensor(state_data[self.eeg_channels[1:]]) #gets the data from all eeg channels except the first one (reference channel)
-        fft_eeg_data = torch.fft.rfft(eeg_data).real
-        flat_fft_eeg_data = torch.flatten(fft_eeg_data) / 100
-        selected_action, predicted_rewards = self.learner.step(flat_fft_eeg_data, self.queued_reward)
+        #https://dsp.stackexchange.com/questions/25456/conversion-of-fft-to-psd#:~:text=To%20get%20the%20PSD%20from,spacing%20on%20your%20x%20axis.&text=If%20you%20want%20to%20check,variance%20of%20the%20original%20signal.
+        #https://www.mathworks.com/help/signal/ug/practical-introduction-to-frequency-domain-analysis.html
+        fft_eeg_data = torch.fft.fft(eeg_data)
+        fft_magnitude = torch.abs(fft_eeg_data)
+        #psd_data = torch.abs(fft_eeg_data)**2
+        self.fft_min = torch.minimum(self.fft_min, torch.min(fft_magnitude, 1)[0].unsqueeze(1))
+        print(self.fft_min)
+        self.fft_max = torch.maximum(self.fft_max, torch.max(fft_magnitude, 1)[0].unsqueeze(1))
+        print(self.fft_max)
+        #fft_magnitude = (fft_magnitude - self.fft_min.expand(-1, fft_magnitude.shape[1])) / self.fft_max.expand(-1, fft_magnitude.shape[1])
+        fft_magnitude /= self.num_baseline_samples + self.num_samples
+        flat_fft_mag = torch.flatten(fft_magnitude)
+        selected_action, predicted_rewards = self.learner.step(flat_fft_mag, self.queued_reward)
         print("Selected action:", actions[selected_action], ", predicted rewards:", predicted_rewards)
 
         for action in range(self.num_actions):
