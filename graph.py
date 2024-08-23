@@ -20,7 +20,7 @@ class MainGraphWindow(QtWidgets.QMainWindow):
         self.update_speed_ms = 50
         self.window_size = 4
         #self.num_points = self.window_size * self.sampling_rate
-        self.num_points = 250
+        self.num_points = 2000 #250
 
         # Temperature vs time dynamic plot
         self.plot_graph = pg.PlotWidget()

@@ -7,7 +7,7 @@ import math
 
 def one_hot(num_classes, class_idx):
     vector = torch.zeros((num_classes))
-    vector[class_idx] = 5e2 #1e3 for eyebrow, 5e2 for blinking
+    vector[class_idx] = 1e3 #5e2 #1e3 for eyebrow, 5e2 for blinking
     return vector
 
 class NeuralNet(nn.Module):
@@ -27,6 +27,8 @@ class NeuralNet(nn.Module):
 
     def forward(self, x):
         x = x.float()
+        # print("x:")
+        # print(x)
         pred = self.relu(self.linear1(x))
         pred = self.tanh(self.linear3(pred))
         # pred = self.relu(self.linear2(pred))
