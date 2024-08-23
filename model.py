@@ -5,65 +5,83 @@ import numpy as np
 import random
 import math
 
-def one_hot(num_classes, class_idx):
-    vector = torch.zeros((num_classes))
-    vector[class_idx] = 1e3 #5e2 #1e3 for eyebrow, 5e2 for blinking
-    return vector
-
 class NeuralNet(nn.Module):
     def __init__(self, num_features):
         super(NeuralNet, self).__init__()
+        
+        #Initializes layer weights close to 0
         self.linear1 = nn.Linear(num_features, 256)
         torch.nn.init.constant_(self.linear1.bias, 0)
         torch.nn.init.xavier_normal_(self.linear1.weight, gain=1e-3)
-        self.linear2 = nn.Linear(256, 256)
+
+        self.linear2 = nn.Linear(256, 1)
         torch.nn.init.constant_(self.linear2.bias, 0)
         torch.nn.init.xavier_normal_(self.linear2.weight, gain=1e-3)
-        self.linear3 = nn.Linear(256, 1)
-        torch.nn.init.constant_(self.linear3.bias, 0)
-        torch.nn.init.xavier_normal_(self.linear3.weight, gain=1e-3)
-        self.relu = nn.ReLU()
-        self.tanh = nn.Tanh()
 
+        self.elu = nn.ELU()
+        self.tanh = nn.Tanh() #Uses tanh as final activation to bound prediction between -1 and 1
+
+    # Calculates prediction for average reward
+    # x: State-action vector
     def forward(self, x):
         x = x.float()
-        # print("x:")
-        # print(x)
-        pred = self.relu(self.linear1(x))
-        pred = self.tanh(self.linear3(pred))
-        # pred = self.relu(self.linear2(pred))
-        # pred = self.tanh(self.linear3(pred))
+        pred = self.elu(self.linear1(x))
+        pred = self.tanh(self.linear2(pred))
         return pred
     
 class QLearner():
-    #alpha 1e-4 for eyebrow movement and blinking
-    def __init__(self, num_actions, num_features, epsilon = 5e-2, alpha=1e-4, eta=1e-2):
+
+    # num_actions: The total number of discrete actions the model can select from
+    # num_features: Number of features describing a state
+    # epsilon: Value of epsilon used in an epsilon-greedy policy (takes a random action with probability of epsilon)
+    # alpha: Learning rate of model
+    # eta: How much the average reward is updated by each step
+    # one_hot_value: Value of selected action in one hot vector
+    def __init__(self, num_actions, num_features, epsilon=5e-2, alpha=1e-4, eta=1e-2, one_hot_value=1e3):
         self.num_actions = num_actions
         self.num_features = num_features
         self.network = NeuralNet(num_features+num_actions).to(torch.float)
-        self.r_bar = 0
+        self.r_bar = 0 #Average reward
         self.epsilon = epsilon
         self.alpha = alpha
         self.eta = eta
+        self.one_hot_value = one_hot_value
         self.prev_state = None
         self.prev_action = None
         self.optimizer = torch.optim.SGD(self.network.parameters(), lr=alpha)
 
+    #Returns a vector with a 1 in class_idx and 0 in all other indices
+    def one_hot(self, num_classes, class_idx):
+        vector = torch.zeros((num_classes))
+        vector[class_idx] = self.one_hot_value
+        return vector
+
+    # Calculates the continual learning loss for a q network as defined on page 38 in this paper:
+    # https://arxiv.org/abs/2006.16318
+    # Note: The algorithm in this paper only states the gradient of the loss
+    #
+    # x: The current state
+    # reward: The observed reward
+    # action: The action taken
+    # x_prime: The next state observed
     def loss(self, x, reward, action, x_prime):
-        predicted_reward = self.network(torch.cat((x, one_hot(self.num_actions, action))))
+        predicted_reward = self.network(torch.cat((x, self.one_hot(self.num_actions, action))))
         with torch.no_grad():
-            max_reward = torch.max(torch.tensor([self.network(torch.cat((x_prime, one_hot(self.num_actions, a)))) for a in range(self.num_actions)]))
+            max_reward = torch.max(torch.tensor([self.network(torch.cat((x_prime, self.one_hot(self.num_actions, a)))) for a in range(self.num_actions)]))
         return (reward \
             - self.r_bar \
             + max_reward \
             - predicted_reward)**2
 
+    # Performs a single training step
     def step(self, x, reward):
-        #selects action using epsilon-greedy policy
         self.optimizer.zero_grad()
+
+        #Selects an action using epsilon greedy
         action_values = []
         for action in range(self.num_actions):
-            action_vector = one_hot(self.num_actions, action)
+            #Select the action with the maximum predicted reward
+            action_vector = self.one_hot(self.num_actions, action)
             state_action_vector = torch.cat((x, action_vector))
             action_val = self.network(state_action_vector)
             if action == 0:
@@ -73,20 +91,33 @@ class QLearner():
                 max_action = action
                 max_action_val = action_val
             action_values.append(action_val)
+        #Select either the maximum action with probability 1-epsilon, or a random one with probability epsilon
         rand = random.random()
         if rand < self.epsilon:
             nonmax_actions = list(range(self.num_actions))
             selected_action = random.choice(nonmax_actions)
         else:
             selected_action = max_action
-        #calculate td error and backpropagate
+
+        #Calculate loss and backpropagate
         if (self.prev_state != None): 
-            delta = self.loss(self.prev_state, reward, self.prev_action, x) # x here is S'
-            self.r_bar += self.eta*self.alpha*delta.detach()
+            delta = self.loss(self.prev_state, reward, self.prev_action, x) #x here is S'
+            self.r_bar += self.eta*self.alpha*delta.detach() #Update the average reward
             delta.backward()
             self.optimizer.step()
+        
+        #Save state and action to use in next update
         self.prev_state = x # set S
         self.prev_action = selected_action # set A
             
         return selected_action, action_values
+
+    # Gets an action from the policy without training the model
+    def get_action(self):
+        pass
+
+    # Saves the model
+    def save(self):
+        pass
+
             
