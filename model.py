@@ -37,7 +37,9 @@ class QLearner():
     # alpha: Learning rate of model
     # eta: How much the average reward is updated by each step
     # one_hot_value: Value of selected action in one hot vector
-    def __init__(self, num_actions, num_features, epsilon=5e-2, alpha=1e-4, eta=1e-2, one_hot_value=1e3):
+    # filename: Prefix of save file name
+    # save_freq: Saves the model every save_freq timesteps
+    def __init__(self, num_actions, num_features, epsilon=5e-2, alpha=1e-4, eta=1e-2, one_hot_value=1e3, filename=None, save_freq=100):
         self.num_actions = num_actions
         self.num_features = num_features
         self.network = NeuralNet(num_features+num_actions).to(torch.float)
@@ -49,6 +51,9 @@ class QLearner():
         self.prev_state = None
         self.prev_action = None
         self.optimizer = torch.optim.SGD(self.network.parameters(), lr=alpha)
+        self.filename = filename
+        self.save_freq = save_freq
+        self.timestep = 0
 
     #Returns a vector with a 1 in class_idx and 0 in all other indices
     def one_hot(self, num_classes, class_idx):
@@ -109,15 +114,36 @@ class QLearner():
         #Save state and action to use in next update
         self.prev_state = x # set S
         self.prev_action = selected_action # set A
+
+        if self.filename and self.timestep % self.save_freq == 0:
+            self.save(self.filename)
+
+        self.timestep += 1
             
         return selected_action, action_values
 
     # Gets an action from the policy without training the model
     def get_action(self):
-        pass
+        #Selects an action using epsilon greedy
+        action_values = []
+        for action in range(self.num_actions):
+            #Select the action with the maximum predicted reward
+            action_vector = self.one_hot(self.num_actions, action)
+            state_action_vector = torch.cat((x, action_vector))
+            action_val = self.network(state_action_vector)
+            if action == 0:
+                max_action = 0
+                max_action_val = action_val
+            elif action_val > max_action_val:
+                max_action = action
+                max_action_val = action_val
+            action_values.append(action_val)
+        return max_action, action_values
 
-    # Saves the model
-    def save(self):
-        pass
+    def save(self, filename):
+        torch.save(self.network.state_dict(), filename + "_network")
+        torch.save(self.optimizer.state_dict(), filename + "_optimizer")
 
-            
+    def load(self, filename):
+        self.network.load_state_dict(torch.load(filename + "_network"))
+        self.optimizer.load_state_dict(torch.load(filename + "_optimizer"))
