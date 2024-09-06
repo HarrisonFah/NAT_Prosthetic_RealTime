@@ -12,3 +12,8 @@ With Hecatron, we have developed a framework for training a deep reinforcement l
 Examples for using the Hecatron functions with Muse, OpenBCI or the synthetic board can be found in 'example.py'.
 
 # Documentation
+
+# Acknowledgements
+This project is partly inspired by Khurram Javed and Abhishek Naik and their project in natHACKS 2023 (https://www.youtube.com/watch?v=NZ9JDahaU70&list=PL3jjdunHUqxzI6Hm05xex8BNJFxMtB2vV&index=3&t=361s)
+The reinforcement learning algorithm we used is based on pseudocode from the paper "Learning and Planning in Average-Reward Markov Decision Processes" by Yi Wan, Abhishek Naik, and Richard S. Sutton (https://arxiv.org/abs/2006.16318)
+
