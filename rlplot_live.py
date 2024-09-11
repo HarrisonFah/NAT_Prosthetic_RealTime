@@ -8,25 +8,22 @@ import torch
 import numpy as np
 from model import QLearner
 
-class MainTrainRLWindow(QtWidgets.QMainWindow):
+class MainLiveRLWindow(QtWidgets.QMainWindow):
     
     keyPressed = QtCore.pyqtSignal(QtCore.QEvent)
 
     # board_shim: The EEG board object that is read onto the plot
     # num_actions: The total number of discrete actions that the policy chooses from
+    # action_functions: Lists of functions such that function with index i is called when action i is selected by the model
     # num_samples: The number of samples used in each state
     # num_baseline_samples: The number of samples used to calculate the baseline mean that is subtracted from the state samples
     # update_speed_ms: How often the plot is updated in milliseconds
     # window_size: The width of the plot window
     # num_points: How many EEG samples are shownn on the plot at once
     # reference_channels: Channels to ignore when calculating the state
-    # epsilon: Value of epsilon used in an epsilon-greedy policy (takes a random action with probability of epsilon)
-    # alpha: Learning rate of model
-    # eta: How much the average reward is updated by each step
     # one_hot_value: Value of selected action in one hot vector
-    # filename: Prefix of save file name
-    # save_freq: Saves the model every save_freq timesteps
-    def __init__(self, board_shim, num_actions=2, num_samples=125, num_baseline_samples=50, update_speed_ms=50, window_size=4, num_points=250, reference_channels=[], epsilon=5e-2, alpha=1e-4, eta=1e-2, one_hot_value=1e3, filename=None, save_freq=100):
+    # filename: Prefix of load file name
+    def __init__(self, board_shim, action_functions, filename, num_actions=2, num_samples=125, num_baseline_samples=50, update_speed_ms=50, window_size=4, num_points=250, reference_channels=[], one_hot_value=1e3):
         super().__init__()
         #Sets all paramaters
         self.board_id = board_shim.get_board_id()
@@ -40,18 +37,21 @@ class MainTrainRLWindow(QtWidgets.QMainWindow):
         self.num_samples = num_samples
         self.num_baseline_samples = num_baseline_samples
         self.num_actions = num_actions
+        self.action_functions = action_functions
+        assert len(action_functions) >= num_actions, "Length of action functions is shorter than number of actions."
         #Initializes FFT values
         self.fft_min = torch.full((len(self.eeg_channels)-len(self.reference_channels), 1), float("Inf")) #Initializes the rolling minimum for normalizing FFT
         self.fft_max = torch.full((len(self.eeg_channels)-len(self.reference_channels), 1), float("-Inf")) #Initializes the rolling maximum for normalizing FFT
         num_fft_features = torch.flatten(torch.fft.fft(torch.zeros((len(self.eeg_channels)-len(self.reference_channels), self.num_samples)))).shape[0] #Calculates the total number of values in an FFT (the state features)
-        self.learner = QLearner(self.num_actions, num_fft_features, epsilon=epsilon, alpha=alpha, eta=eta, one_hot_value=one_hot_value, filename=filename, save_freq=save_freq) #Initializes reinforcement learning model
-        self.queued_reward = 0 
+        self.learner = QLearner(self.num_actions, num_fft_features, one_hot_value=one_hot_value, filename=filename) #Initializes reinforcement learning model
+        assert filename is not None, "filename is None."
+        self.learner.load(filename)
 
         #Sets up the plot
         self.plot_graph = pg.PlotWidget()
         self.setCentralWidget(self.plot_graph)
         self.plot_graph.setBackground("w")
-        self.plot_graph.setTitle("Training RL Agent", color="b", size="20pt")
+        self.plot_graph.setTitle("Using RL Agent", color="b", size="20pt")
         styles = {"color": "red", "font-size": "18px"}
         self.plot_graph.addLegend()
         self.plot_graph.showGrid(x=True, y=True)
@@ -68,15 +68,6 @@ class MainTrainRLWindow(QtWidgets.QMainWindow):
                 pen=predict_pen,
             )
             self.all_predictions.append((predictions, predict_line))
-    
-        #Sets up line for plotting rewards
-        self.rewards = [0 for _ in range(self.num_points)]
-        reward_pen = pg.mkPen(color = 'r', width=3)
-        self.reward_line = self.plot_graph.plot(
-            self.rewards,
-            name="Reward",
-            pen=reward_pen,
-        )
 
         #Sets up line for plotting selected actions
         self.actions = [0 for _ in range(self.num_points)]
@@ -106,8 +97,13 @@ class MainTrainRLWindow(QtWidgets.QMainWindow):
         fft_magnitude /= self.num_samples
         flat_fft_mag = torch.flatten(fft_magnitude)
         #Performs training step and gets the selected action and predicted rewards from the RL model
-        selected_action, predicted_rewards = self.learner.step(flat_fft_mag, self.queued_reward)
-        print("Selected action:", selected_action, ", predicted rewards:", [reward.item() for reward in predicted_rewards])
+        selected_action, predicted_rewards = self.learner.get_action(flat_fft_mag)
+        print("Predicted rewards:", [reward.item() for reward in predicted_rewards])
+        try:
+            self.action_functions[selected_action]()
+        except Exception as e:
+            print(e)
+            print("Could not call function for action:", selected_action)
 
         #Updates the predictions for each action on the plot
         for action in range(self.num_actions):
@@ -120,20 +116,3 @@ class MainTrainRLWindow(QtWidgets.QMainWindow):
         self.actions.pop(0)
         self.actions.append(selected_action)
         self.action_line.setData(self.actions)
-
-        #Updates the rewards on the plot
-        self.rewards.pop(0)
-        self.rewards.append(self.queued_reward)
-        self.reward_line.setData(self.rewards)
-        self.queued_reward = 0
-
-    #Detects a keypress and gives a +/- reward
-    def keyPressEvent(self, event):
-        super(MainTrainRLWindow, self).keyPressEvent(event)
-        #Up arrow gives +1 reward
-        if event.key() == 16777235:
-            self.queued_reward = 1
-        #Down arrow gives -1 reward
-        elif event.key() == 16777237:
-            self.queued_reward = -1
-        self.keyPressed.emit(event)

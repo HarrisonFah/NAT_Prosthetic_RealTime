@@ -123,7 +123,7 @@ class QLearner():
         return selected_action, action_values
 
     # Gets an action from the policy without training the model
-    def get_action(self):
+    def get_action(self, x):
         #Selects an action using epsilon greedy
         action_values = []
         for action in range(self.num_actions):
