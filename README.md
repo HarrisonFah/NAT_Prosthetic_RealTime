@@ -13,6 +13,9 @@ Examples for using the Hecatron functions with Muse, OpenBCI or the synthetic bo
 
 # Documentation
 
+run_training_session(...): 
+Use up arrow key to give a reward of +1, down arrow key to give a reward of -1.
+
 # Acknowledgements
 This project is partly inspired by Khurram Javed and Abhishek Naik and their project in natHACKS 2023 (https://www.youtube.com/watch?v=NZ9JDahaU70&list=PL3jjdunHUqxzI6Hm05xex8BNJFxMtB2vV&index=3&t=361s)
 
