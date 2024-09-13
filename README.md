@@ -90,6 +90,10 @@ None
 
 **save_freq** (int): Saves the model every save_freq timesteps.
 
+## hecatron.run_live_session(board, action_functions=[_action_0_default, _action_1_default], filename="default_model", num_actions=2, num_samples=125, num_baseline_samples=50, update_speed_ms=50, window_size=4, num_points=250, reference_channels=[], one_hot_value=1e3)
+
+To do.
+
 # Acknowledgements
 This project is partly inspired by Khurram Javed and Abhishek Naik and their project in natHACKS 2023 (https://www.youtube.com/watch?v=NZ9JDahaU70&list=PL3jjdunHUqxzI6Hm05xex8BNJFxMtB2vV&index=3&t=361s)
 
