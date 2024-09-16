@@ -91,8 +91,39 @@ None
 **save_freq** (int): Saves the model every save_freq timesteps.
 
 ## hecatron.run_live_session(board, action_functions=[_action_0_default, _action_1_default], filename="default_model", num_actions=2, num_samples=125, num_baseline_samples=50, update_speed_ms=50, window_size=4, num_points=250, reference_channels=[], one_hot_value=1e3)
+Loads the trained reinforcement learning model and assigns functions to each of the learned actions. A live plot is opened to show the predicted and selected actions.
 
-To do.
+### Returns
+None
+
+### Parameters
+**board** (brainflow.BoardShim object): The EEG device being read from.
+
+**action_functions** (list[func]): A list of functions such that function at index i is called when action i is selected by the model.
+
+**filename** (str): Prefix of file name to laod model from.
+
+**num_actions** (int): The number of actions that the RL model can select from. This must be equal to the number of actions of the loaded model.
+
+**num_samples** (int): The number of samples used to describe a state at each timestep.
+
+**num_baseline_samples** (int): The number of samples before the state sample that are averaged and subtracted from it.
+
+**update_speed_ms** (int): How often the plot is updated, in milliseconds.
+
+**window_size** (int): The width of the plot window.
+
+**num_points** (int): The number of EEG samples to plot at each timepoint.
+
+**reference_channels** (list[int]): A list of the indices of EEG channels to ignore (should be used for reference channels). The index should be of the EEG channels and not the total channels (e.g. if we want to ignore the first EEG channel which brainflow has at channel index 16, we would just pass in an index of 0.)
+
+**epsilon*** (float): Value of epsilon used in an epsilon-greedy policy (takes a random action with probability of epsilon).
+
+**alpha** (float): Learning rate of model. Rate at which the model weights are updated in each training step.
+
+**eta** (float): Rate at which the average reward is updated in each training step.
+
+**one_hot_value** (float): Value of selected action in one_hot_vector
 
 # Acknowledgements
 This project is partly inspired by Khurram Javed and Abhishek Naik and their project in natHACKS 2023 (https://www.youtube.com/watch?v=NZ9JDahaU70&list=PL3jjdunHUqxzI6Hm05xex8BNJFxMtB2vV&index=3&t=361s)
